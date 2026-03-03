@@ -1,0 +1,361 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>UAV Airborne Relay Architecture</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Rajdhani:wght@400;600;700&family=Share+Tech+Mono&display=swap');
+*{margin:0;padding:0;box-sizing:border-box;}
+body{background:#0a0e1a;color:#e0e8ff;font-family:'Rajdhani',sans-serif;overflow-x:hidden;min-height:100vh;}
+body::before{content:'';position:fixed;inset:0;background-image:linear-gradient(rgba(0,200,255,0.03) 1px,transparent 1px),linear-gradient(90deg,rgba(0,200,255,0.03) 1px,transparent 1px);background-size:40px 40px;pointer-events:none;z-index:0;}
+.container{position:relative;z-index:1;max-width:920px;margin:0 auto;padding:20px;}
+header{text-align:center;padding:24px 0 18px;border-bottom:1px solid rgba(0,200,255,0.2);margin-bottom:20px;}
+header h1{font-size:clamp(1.1rem,4vw,1.9rem);font-weight:700;letter-spacing:3px;text-transform:uppercase;color:#00c8ff;text-shadow:0 0 20px rgba(0,200,255,0.5);}
+header p{font-family:'Share Tech Mono',monospace;font-size:clamp(0.55rem,1.5vw,0.72rem);color:rgba(0,200,255,0.5);letter-spacing:2px;margin-top:5px;}
+#simCanvas{width:100%;height:340px;border:1px solid rgba(0,200,255,0.15);border-radius:4px;display:block;}
+.legend{display:flex;gap:14px;margin-top:10px;flex-wrap:wrap;font-family:'Share Tech Mono',monospace;font-size:clamp(0.55rem,1.3vw,0.67rem);}
+.legend-item{display:flex;align-items:center;gap:5px;color:rgba(224,232,255,0.6);}
+.legend-dot{width:12px;height:3px;border-radius:1px;}
+.launch-panel{margin-top:14px;background:rgba(0,0,0,0.3);border:1px solid rgba(0,200,255,0.15);border-radius:4px;padding:12px;}
+.launch-panel .panel-title{font-family:'Share Tech Mono',monospace;font-size:clamp(0.6rem,1.4vw,0.7rem);color:rgba(0,200,255,0.5);letter-spacing:2px;margin-bottom:10px;}
+.launch-row{display:flex;gap:10px;flex-wrap:wrap;}
+.launch-btn{font-family:'Rajdhani',sans-serif;font-weight:700;font-size:clamp(0.7rem,2vw,0.88rem);letter-spacing:1px;text-transform:uppercase;padding:11px 14px;border-radius:2px;cursor:pointer;transition:all 0.2s;flex:1;min-width:110px;}
+.btn-relay-launch{background:rgba(0,200,255,0.12);border:1px solid rgba(0,200,255,0.5);color:#00c8ff;}
+.btn-relay-launch:hover:not(:disabled){background:rgba(0,200,255,0.25);box-shadow:0 0 14px rgba(0,200,255,0.3);}
+.btn-uav-launch{background:rgba(0,255,136,0.1);border:1px solid rgba(0,255,136,0.5);color:#00ff88;}
+.btn-uav-launch:hover:not(:disabled){background:rgba(0,255,136,0.22);box-shadow:0 0 14px rgba(0,255,136,0.3);}
+.btn-relay-rtb{background:rgba(255,200,0,0.08);border:1px solid rgba(255,200,0,0.4);color:#ffcc00;}
+.btn-relay-rtb:hover:not(:disabled){background:rgba(255,200,0,0.18);}
+.btn-fail{background:rgba(255,60,60,0.08);border:1px solid rgba(255,60,60,0.4);color:#ff5050;}
+.btn-fail:hover:not(:disabled){background:rgba(255,60,60,0.18);}
+.btn-reset{background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.15);color:rgba(255,255,255,0.5);}
+.btn-reset:hover{background:rgba(255,255,255,0.08);}
+.launch-btn:disabled{opacity:0.25;cursor:not-allowed;}
+.status-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-top:12px;}
+.status-card{background:rgba(255,255,255,0.02);border:1px solid rgba(0,200,255,0.1);border-radius:4px;padding:10px;}
+.status-card .label{font-family:'Share Tech Mono',monospace;font-size:clamp(0.5rem,1.1vw,0.62rem);color:rgba(0,200,255,0.5);letter-spacing:1px;text-transform:uppercase;margin-bottom:4px;}
+.status-card .value{font-family:'Share Tech Mono',monospace;font-size:clamp(0.72rem,1.8vw,0.92rem);font-weight:600;}
+.c-cyan{color:#00c8ff;}.c-green{color:#00ff88;}.c-red{color:#ff5050;}.c-yellow{color:#ffcc00;}.c-gray{color:rgba(255,255,255,0.3);}
+.info-panel{margin-top:12px;padding:13px;background:rgba(0,200,255,0.03);border:1px solid rgba(0,200,255,0.1);border-radius:4px;font-family:'Share Tech Mono',monospace;font-size:clamp(0.6rem,1.4vw,0.72rem);line-height:1.8;color:rgba(224,232,255,0.7);}
+.info-panel .phase{color:#00c8ff;font-weight:600;letter-spacing:2px;margin-bottom:5px;font-size:clamp(0.65rem,1.6vw,0.76rem);}
+footer{text-align:center;margin-top:20px;padding:12px 0;border-top:1px solid rgba(0,200,255,0.1);font-family:'Share Tech Mono',monospace;font-size:clamp(0.5rem,1.1vw,0.6rem);color:rgba(0,200,255,0.3);letter-spacing:2px;}
+</style>
+</head>
+<body>
+<div class="container">
+  <header>
+    <h1>UAV Airborne Relay Architecture</h1>
+    <p>BLOS RANGE EXTENSION SIMULATION // RALF CHRISTIAN SANOY</p>
+  </header>
+  <canvas id="simCanvas"></canvas>
+  <div class="legend">
+    <div class="legend-item"><div class="legend-dot" style="background:#00c8ff"></div><span>GCS TO RELAY</span></div>
+    <div class="legend-item"><div class="legend-dot" style="background:#ff6b35"></div><span>RELAY TO MISSION UAV</span></div>
+    <div class="legend-item"><div class="legend-dot" style="background:#00ff88"></div><span>DIRECT LINK (LOS)</span></div>
+    <div class="legend-item"><div class="legend-dot" style="background:rgba(255,50,50,0.55)"></div><span>DIRECT LINK BLOCKED</span></div>
+  </div>
+  <div class="launch-panel">
+    <div class="panel-title">MISSION CONTROL // OPERATOR COMMANDS</div>
+    <div class="launch-row">
+      <button class="launch-btn btn-relay-launch" id="btnLaunchRelay" onclick="cmdLaunchRelay()">LAUNCH RELAY UAV</button>
+      <button class="launch-btn btn-uav-launch"   id="btnLaunchUAV"   onclick="cmdLaunchUAV()"   disabled>LAUNCH MISSION UAV</button>
+      <button class="launch-btn btn-relay-rtb"    id="btnRelayRTB"    onclick="cmdRelayRTB()"    disabled>RELAY RTB</button>
+      <button class="launch-btn btn-fail"          id="btnFail"        onclick="cmdRelayFail()"   disabled>RELAY FAIL</button>
+      <button class="launch-btn btn-reset"                             onclick="cmdReset()">RESET</button>
+    </div>
+  </div>
+  <div class="status-grid">
+    <div class="status-card"><div class="label">MISSION UAV</div><div class="value c-gray" id="sUAV">ON GROUND</div></div>
+    <div class="status-card"><div class="label">RELAY UAV</div><div class="value c-gray" id="sRelay">ON GROUND</div></div>
+    <div class="status-card"><div class="label">DATALINK</div><div class="value c-gray" id="sLink">NO LINK</div></div>
+    <div class="status-card"><div class="label">RANGE</div><div class="value c-cyan" id="sRange">0 KM</div></div>
+    <div class="status-card"><div class="label">LINK MODE</div><div class="value c-gray" id="sMode">NONE</div></div>
+    <div class="status-card"><div class="label">SITUATION</div><div class="value c-gray" id="sSit">STANDBY</div></div>
+  </div>
+  <div class="info-panel">
+    <div class="phase" id="infoTitle">AWAITING OPERATOR COMMAND</div>
+    <div id="infoDesc">You are the operator. Try Scenario A: Launch only the Mission UAV — watch it lose link when it enters BLOS. Try Scenario B: Launch Relay first, then Mission UAV — C2 is maintained beyond line of sight.</div>
+  </div>
+  <footer>RALF CHRISTIAN SANOY // UAS BVLOS PILOT AND MISSION COMMANDER // 2026</footer>
+</div>
+<script>
+const canvas=document.getElementById('simCanvas');
+const ctx=canvas.getContext('2d');
+let W,H,frame=0;
+const BLOS=0.46,GCS_X=0.08,GCS_Y=0.72,RLX=0.35,RLY=0.22;
+let relay={phase:'ground',x:GCS_X,y:GCS_Y-0.04,orbit:0};
+let uav={phase:'ground',x:GCS_X,y:0.32};
+let contingencyTimer=null,dashOff=0,terrain=[];
+
+function buildTerrain(){
+  terrain=[];
+  const peaks=[{x:0.28,h:0.52},{x:0.40,h:0.46},{x:0.52,h:0.60},{x:0.63,h:0.47}];
+  for(let i=0;i<=120;i++){
+    let nx=i/120,ny=0.82;
+    peaks.forEach(p=>{let d=Math.abs(nx-p.x);if(d<0.18){let f=1-d/0.18;ny-=p.h*f*f*0.37;}});
+    terrain.push({x:nx,y:ny});
+  }
+}
+function resize(){W=canvas.offsetWidth;H=canvas.offsetHeight;canvas.width=W;canvas.height=H;buildTerrain();}
+function px(n){return n*W;} function py(n){return n*H;}
+function relayPos(){
+  if(relay.phase==='orbiting')return{x:RLX+0.06*Math.cos(relay.orbit),y:RLY+0.035*Math.sin(relay.orbit)};
+  return{x:relay.x,y:relay.y};
+}
+function hasRelay(){return relay.phase==='orbiting';}
+function uavBLOS(){return uav.x>=BLOS;}
+function uavLOS(){return uav.x<BLOS;}
+
+function drawScene(){
+  let sky=ctx.createLinearGradient(0,0,0,H*0.75);
+  sky.addColorStop(0,'#040c18');sky.addColorStop(1,'#0c1828');
+  ctx.fillStyle=sky;ctx.fillRect(0,0,W,H);
+  ctx.fillStyle='rgba(255,255,255,0.5)';
+  for(let i=0;i<55;i++)ctx.fillRect(((i*131)%W),(((i*89)%0.38)*H),1,1);
+  ctx.fillStyle='rgba(255,40,40,0.05)';ctx.fillRect(px(BLOS),0,W-px(BLOS),H);
+  ctx.strokeStyle='rgba(255,40,40,0.28)';ctx.setLineDash([5,5]);ctx.lineWidth=1;
+  ctx.beginPath();ctx.moveTo(px(BLOS),0);ctx.lineTo(px(BLOS),py(0.76));ctx.stroke();ctx.setLineDash([]);
+  ctx.fillStyle='rgba(255,70,70,0.65)';ctx.font=`bold ${Math.max(9,W*0.012)}px 'Share Tech Mono'`;
+  ctx.textAlign='center';ctx.fillText('BLOS ZONE',px(0.65),py(0.07));
+  ctx.fillStyle='rgba(0,200,255,0.45)';ctx.fillText('LOS ZONE',px(0.27),py(0.07));
+  ctx.beginPath();ctx.moveTo(0,H);
+  terrain.forEach(p=>ctx.lineTo(px(p.x),py(p.y)));
+  ctx.lineTo(W,H);ctx.closePath();
+  let tg=ctx.createLinearGradient(0,H*0.45,0,H);
+  tg.addColorStop(0,'#1a2a10');tg.addColorStop(0.6,'#152008');tg.addColorStop(1,'#0e1a06');
+  ctx.fillStyle=tg;ctx.fill();
+  ctx.beginPath();terrain.forEach((p,i)=>i===0?ctx.moveTo(px(p.x),py(p.y)):ctx.lineTo(px(p.x),py(p.y)));
+  ctx.strokeStyle='rgba(0,200,100,0.25)';ctx.lineWidth=1.5;ctx.stroke();
+  let wg=ctx.createLinearGradient(0,py(0.82),0,H);
+  wg.addColorStop(0,'rgba(0,40,90,0.7)');wg.addColorStop(1,'rgba(0,15,45,0.9)');
+  ctx.fillStyle=wg;ctx.fillRect(0,py(0.82),W,H);
+}
+
+function drawGCS(){
+  let x=px(GCS_X),y=py(GCS_Y);
+  ctx.fillStyle='#8a9a68';ctx.fillRect(x-18,y-10,36,14);
+  ctx.fillStyle='#6a7a48';ctx.fillRect(x-13,y-18,26,10);
+  ctx.fillStyle='#2a2a2a';
+  ctx.beginPath();ctx.arc(x-10,y+5,5,0,Math.PI*2);ctx.fill();
+  ctx.beginPath();ctx.arc(x+10,y+5,5,0,Math.PI*2);ctx.fill();
+  ctx.strokeStyle='#00c8ff';ctx.lineWidth=1.5;
+  ctx.beginPath();ctx.moveTo(x+2,y-18);ctx.lineTo(x+10,y-33);ctx.stroke();
+  ctx.beginPath();ctx.arc(x+10,y-33,5,-Math.PI*0.85,Math.PI*0.15);ctx.stroke();
+  let pulse=(Math.sin(frame*0.09)+1)*0.5;
+  ctx.beginPath();ctx.arc(x+10,y-33,8+pulse*7,0,Math.PI*2);
+  ctx.strokeStyle=`rgba(0,200,255,${0.28-pulse*0.22})`;ctx.lineWidth=1;ctx.stroke();
+  ctx.fillStyle='#00c8ff';ctx.font=`bold ${Math.max(8,W*0.012)}px 'Share Tech Mono'`;
+  ctx.textAlign='center';ctx.fillText('GCS',x,y+23);
+  ctx.fillStyle='rgba(0,200,255,0.45)';ctx.font=`${Math.max(7,W*0.009)}px 'Share Tech Mono'`;
+  ctx.fillText('CREW MONITORED',x,y+33);
+}
+
+function drawRelayUAV(){
+  if(relay.phase==='ground')return;
+  let rp=relayPos(),x=px(rp.x),y=py(rp.y);
+  if(relay.phase==='orbiting'){
+    ctx.beginPath();ctx.ellipse(px(RLX),py(RLY),px(0.06),py(0.035),0,0,Math.PI*2);
+    ctx.strokeStyle='rgba(0,200,255,0.12)';ctx.setLineDash([3,6]);ctx.lineWidth=1;ctx.stroke();ctx.setLineDash([]);
+  }
+  let col=relay.phase==='failed'?'#ff5050':'#00c8ff';
+  let bank=relay.phase==='orbiting'?-Math.sin(relay.orbit)*0.4:0;
+  ctx.save();ctx.translate(x,y);ctx.rotate(bank);
+  ctx.fillStyle=col;
+  ctx.beginPath();ctx.ellipse(0,0,20,5,0,0,Math.PI*2);ctx.fill();
+  ctx.beginPath();ctx.moveTo(-4,0);ctx.lineTo(4,0);ctx.lineTo(2,-17);ctx.lineTo(-11,-2);ctx.closePath();ctx.fill();
+  ctx.beginPath();ctx.moveTo(-4,0);ctx.lineTo(4,0);ctx.lineTo(2,17);ctx.lineTo(-11,2);ctx.closePath();ctx.fill();
+  ctx.beginPath();ctx.moveTo(-16,0);ctx.lineTo(-21,-8);ctx.lineTo(-21,8);ctx.closePath();ctx.fill();
+  if(relay.phase==='orbiting'){ctx.shadowColor='#00c8ff';ctx.shadowBlur=12;}
+  ctx.beginPath();ctx.arc(0,0,3,0,Math.PI*2);ctx.fillStyle=col;ctx.fill();ctx.shadowBlur=0;
+  ctx.restore();
+  ctx.fillStyle=col;ctx.font=`bold ${Math.max(8,W*0.011)}px 'Share Tech Mono'`;ctx.textAlign='center';
+  let lbl=relay.phase==='failed'?'RELAY [FAIL]':relay.phase==='rtb'?'RELAY UAV [RTB]':'RELAY UAV';
+  ctx.fillText(lbl,x,y-30);
+  ctx.fillStyle=col+'88';ctx.font=`${Math.max(7,W*0.009)}px 'Share Tech Mono'`;
+  let sub=relay.phase==='launching'?'CLIMBING TO STATION':relay.phase==='orbiting'?'ORBITING // EO-IR':relay.phase==='rtb'?'RETURNING // LAST TO LAND':'';
+  ctx.fillText(sub,x,y-20);
+}
+
+function drawMissionUAV(){
+  if(uav.phase==='ground')return;
+  let x=px(uav.x),y=py(uav.y);
+  ctx.fillStyle='rgba(0,0,0,0.12)';ctx.beginPath();ctx.ellipse(x,py(0.78),14,3,0,0,Math.PI*2);ctx.fill();
+  let col=uav.phase==='contingency'?'#ff5050':uav.phase==='rtb'?'#ffcc00':'#00ff88';
+  ctx.fillStyle=col;
+  ctx.beginPath();ctx.ellipse(x,y,25,6,0,0,Math.PI*2);ctx.fill();
+  ctx.beginPath();ctx.moveTo(x-5,y);ctx.lineTo(x+5,y);ctx.lineTo(x+3,y-21);ctx.lineTo(x-12,y-2);ctx.closePath();ctx.fill();
+  ctx.beginPath();ctx.moveTo(x-5,y);ctx.lineTo(x+5,y);ctx.lineTo(x+3,y+21);ctx.lineTo(x-12,y+2);ctx.closePath();ctx.fill();
+  ctx.fillStyle=col+'88';ctx.fillRect(x-4,y+6,8,7);
+  ctx.shadowColor=col;ctx.shadowBlur=15;ctx.beginPath();ctx.arc(x,y,3,0,Math.PI*2);ctx.fillStyle=col;ctx.fill();ctx.shadowBlur=0;
+  ctx.fillStyle=col;ctx.font=`bold ${Math.max(8,W*0.011)}px 'Share Tech Mono'`;ctx.textAlign='center';
+  let lbl=uav.phase==='contingency'?'MISSION UAV [LINK LOSS]':uav.phase==='rtb'?'MISSION UAV [RTB]':'MISSION UAV';
+  ctx.fillText(lbl,x,y-28);
+  if(uav.phase==='active'||uav.phase==='blos'){
+    ctx.fillStyle=col+'77';ctx.font=`${Math.max(7,W*0.009)}px 'Share Tech Mono'`;ctx.fillText('PAYLOAD // ISR',x,y-18);
+  }
+}
+
+function drawLinks(){
+  dashOff-=1.5;
+  if(uav.phase==='ground'||uav.phase==='launching')return;
+  let gx=px(GCS_X)+10,gy=py(GCS_Y)-33,rp=relayPos(),rx=px(rp.x),ry=py(rp.y),ux=px(uav.x),uy=py(uav.y);
+  if(uavLOS()&&uav.phase!=='contingency'&&uav.phase!=='rtb'){
+    let a=0.5+Math.sin(frame*0.1)*0.25;
+    ctx.beginPath();ctx.moveTo(gx,gy);ctx.lineTo(ux,uy);
+    ctx.strokeStyle=`rgba(0,255,136,${a})`;ctx.setLineDash([6,3]);ctx.lineDashOffset=dashOff;ctx.lineWidth=2;ctx.stroke();ctx.setLineDash([]);
+    let t=(frame*0.016)%1;
+    ctx.beginPath();ctx.arc(gx+(ux-gx)*t,gy+(uy-gy)*t,3.5,0,Math.PI*2);ctx.fillStyle='#00ff88';ctx.fill();
+    ctx.fillStyle='rgba(0,255,136,0.6)';ctx.font=`${Math.max(7,W*0.009)}px 'Share Tech Mono'`;ctx.textAlign='center';
+    ctx.fillText('DIRECT LINK',(gx+ux)/2,(gy+uy)/2-8);
+  } else if(uavBLOS()){
+    ctx.beginPath();ctx.moveTo(gx,gy);ctx.lineTo(ux,uy);
+    ctx.strokeStyle='rgba(255,50,50,0.18)';ctx.setLineDash([4,7]);ctx.lineDashOffset=dashOff;ctx.lineWidth=1;ctx.stroke();ctx.setLineDash([]);
+    ctx.fillStyle='rgba(255,60,60,0.45)';ctx.font=`${Math.max(7,W*0.009)}px 'Share Tech Mono'`;ctx.textAlign='center';
+    ctx.fillText('DIRECT LINK BLOCKED',(gx+ux)/2,(gy+uy)/2+22);
+  }
+  if(hasRelay()&&uav.phase!=='contingency'&&uav.phase!=='rtb'){
+    let a=0.55+Math.sin(frame*0.1)*0.28;
+    ctx.beginPath();ctx.moveTo(gx,gy);ctx.lineTo(rx,ry);
+    ctx.strokeStyle=`rgba(0,200,255,${a})`;ctx.setLineDash([7,3]);ctx.lineDashOffset=dashOff;ctx.lineWidth=2;ctx.stroke();ctx.setLineDash([]);
+    ctx.beginPath();ctx.moveTo(rx,ry);ctx.lineTo(ux,uy);
+    ctx.strokeStyle=`rgba(255,107,53,${a})`;ctx.setLineDash([7,3]);ctx.lineDashOffset=dashOff;ctx.lineWidth=2;ctx.stroke();ctx.setLineDash([]);
+    let t1=(frame*0.016)%1;ctx.beginPath();ctx.arc(gx+(rx-gx)*t1,gy+(ry-gy)*t1,3.5,0,Math.PI*2);ctx.fillStyle='#00c8ff';ctx.fill();
+    let t2=(frame*0.016+0.5)%1;ctx.beginPath();ctx.arc(rx+(ux-rx)*t2,ry+(uy-ry)*t2,3.5,0,Math.PI*2);ctx.fillStyle='#ff6b35';ctx.fill();
+    ctx.fillStyle='rgba(0,200,255,0.6)';ctx.font=`${Math.max(7,W*0.009)}px 'Share Tech Mono'`;ctx.textAlign='center';
+    ctx.fillText('C2 UPLINK',(gx+rx)/2-10,(gy+ry)/2-10);
+    ctx.fillStyle='rgba(255,107,53,0.6)';ctx.fillText('C2 DOWNLINK',(rx+ux)/2+10,(ry+uy)/2-10);
+  }
+  ctx.beginPath();ctx.moveTo(px(GCS_X),py(0.88));ctx.lineTo(px(uav.x),py(0.88));
+  ctx.strokeStyle='rgba(0,255,136,0.28)';ctx.lineWidth=1;ctx.setLineDash([2,5]);ctx.stroke();ctx.setLineDash([]);
+  let km=Math.round((uav.x-GCS_X)*130);
+  ctx.fillStyle='rgba(0,255,136,0.6)';ctx.font=`${Math.max(7,W*0.009)}px 'Share Tech Mono'`;ctx.textAlign='center';
+  ctx.fillText(`RANGE: ${km} KM`,px((GCS_X+uav.x)/2),py(0.92));
+  document.getElementById('sRange').textContent=km+' KM';
+}
+
+function drawHUD(){
+  ctx.fillStyle='rgba(0,200,255,0.04)';ctx.fillRect(0,0,W,26);
+  ctx.strokeStyle='rgba(0,200,255,0.12)';ctx.lineWidth=1;ctx.beginPath();ctx.moveTo(0,26);ctx.lineTo(W,26);ctx.stroke();
+  ctx.fillStyle='rgba(0,200,255,0.55)';ctx.font=`${Math.max(8,W*0.011)}px 'Share Tech Mono'`;
+  ctx.textAlign='left';ctx.fillText(`T+${String(Math.floor(frame/60)).padStart(3,'0')}s`,8,17);
+  ctx.textAlign='right';ctx.fillText('OPERATOR CONTROLLED',W-8,17);
+  ctx.textAlign='center';ctx.fillText('UAV AIRBORNE RELAY SIM // BLOS EXTENSION',W/2,17);
+}
+
+function updateLogic(){
+  if(relay.phase==='launching'){
+    relay.x+=(RLX-relay.x)*0.016;relay.y+=(RLY-relay.y)*0.02;
+    if(Math.abs(relay.y-RLY)<0.012&&Math.abs(relay.x-RLX)<0.012){relay.x=RLX;relay.y=RLY;relay.phase='orbiting';updateButtons();}
+  }
+  if(relay.phase==='orbiting'){relay.orbit+=0.018;if(relay.orbit>Math.PI*2)relay.orbit-=Math.PI*2;}
+  if(relay.phase==='rtb'){
+    relay.x+=(GCS_X-relay.x)*0.016;relay.y+=(GCS_Y-0.08-relay.y)*0.014;
+    if(Math.abs(relay.x-GCS_X)<0.025&&relay.y>GCS_Y-0.12){relay.phase='landed_rtb';updateButtons();}
+  }
+  if(uav.phase==='launching'){
+    uav.x+=0.004;uav.y+=(0.32-uav.y)*0.08;
+    if(uav.x>GCS_X+0.06){uav.phase='active';}
+  }
+  if(uav.phase==='active'){
+    uav.x+=0.0012;if(uav.x>=BLOS)uav.phase='blos';if(uav.x>0.88)uav.x=0.88;
+  }
+  if(uav.phase==='blos'){
+    if(hasRelay()){uav.x+=0.0012;if(uav.x>0.88)uav.x=0.88;}
+    else{uav.phase='contingency';if(!contingencyTimer)contingencyTimer=setTimeout(()=>{uav.phase='rtb';contingencyTimer=null;updateButtons();},3000);}
+  }
+  if(uav.phase==='rtb'){
+    uav.x-=0.009;
+    if(uav.x<=GCS_X+0.02){uav.x=GCS_X+0.02;uav.phase='landed';if(relay.phase==='orbiting')relay.phase='rtb';updateButtons();}
+  }
+  frame++;
+}
+
+function updateStatus(){
+  let rs='ON GROUND',rc='c-gray';
+  if(relay.phase==='launching'){rs='CLIMBING';rc='c-cyan';}
+  else if(relay.phase==='orbiting'){rs='ORBITING';rc='c-green';}
+  else if(relay.phase==='rtb'){rs='RTB // LAST';rc='c-yellow';}
+  else if(relay.phase==='landed_rtb'){rs='LANDED';rc='c-gray';}
+  else if(relay.phase==='failed'){rs='FAILED';rc='c-red';}
+  document.getElementById('sRelay').textContent=rs;document.getElementById('sRelay').className=`value ${rc}`;
+
+  let us='ON GROUND',uc='c-gray';
+  if(uav.phase==='launching'){us='LAUNCHING';uc='c-cyan';}
+  else if(uav.phase==='active'){us='ACTIVE // LOS';uc='c-green';}
+  else if(uav.phase==='blos'){us='ACTIVE // BLOS';uc='c-green';}
+  else if(uav.phase==='contingency'){us='LINK LOSS';uc='c-red';}
+  else if(uav.phase==='rtb'){us='RTB';uc='c-yellow';}
+  else if(uav.phase==='landed'){us='LANDED';uc='c-gray';}
+  document.getElementById('sUAV').textContent=us;document.getElementById('sUAV').className=`value ${uc}`;
+
+  let ls='NO LINK',lc='c-gray',lm='NONE';
+  if(uav.phase==='ground'||uav.phase==='launching'){ls='NO LINK';lc='c-gray';lm='NONE';}
+  else if(uav.phase==='contingency'){ls='LINK LOSS';lc='c-red';lm='NONE';}
+  else if(uav.phase==='rtb'||uav.phase==='landed'){ls='RECOVERY';lc='c-yellow';lm='DIRECT';}
+  else if(uavBLOS()&&hasRelay()){ls='NOMINAL';lc='c-green';lm='RELAY';}
+  else if(uavLOS()&&hasRelay()){ls='NOMINAL';lc='c-green';lm='DIRECT+RELAY';}
+  else if(uavLOS()){ls='NOMINAL';lc='c-green';lm='DIRECT';}
+  else{ls='LINK LOSS';lc='c-red';lm='NONE';}
+  document.getElementById('sLink').textContent=ls;document.getElementById('sLink').className=`value ${lc}`;
+  document.getElementById('sMode').textContent=lm;
+
+  let sit='STANDBY',sc='c-gray',st='AWAITING OPERATOR COMMAND',sd='You are the operator. Try Scenario A: Launch only the Mission UAV and watch it lose link at BLOS. Try Scenario B: Launch Relay first, then Mission UAV to extend range beyond line of sight.';
+  if(relay.phase==='launching'){sit='RELAY UP';sc='c-cyan';st='RELAY UAV CLIMBING TO STATION';sd='Relay UAV climbing to loiter altitude. Once on station it will orbit. You can launch the Mission UAV now or wait for relay to establish.';}
+  else if(relay.phase==='orbiting'&&uav.phase==='ground'){sit='READY';sc='c-cyan';st='RELAY ON STATION // AWAITING MISSION UAV';sd='Relay UAV orbiting on station. Range extension is ready. Launch the Mission UAV — it will have continuous C2 through direct link in LOS and relay link in BLOS.';}
+  else if(uav.phase==='launching'){sit='LAUNCH';sc='c-cyan';st='MISSION UAV LAUNCHING';sd=relay.phase==='orbiting'?'Mission UAV launching. Relay on station. Full C2 coverage through LOS and BLOS confirmed.':'Mission UAV launching. No relay on station. Direct link active in LOS. Link will be lost when UAV enters BLOS zone.';}
+  else if(uav.phase==='active'){sit='LOS OPS';sc='c-green';st='MISSION UAV IN LOS ZONE';sd=relay.phase==='orbiting'?'Direct link active. Relay also bridging. UAV approaching BLOS — relay will take over when terrain blocks direct link.':'Direct link active. No relay on station. UAV approaching BLOS zone. When it crosses the boundary, link will be lost.';}
+  else if(uav.phase==='blos'&&hasRelay()){sit='BLOS OPS';sc='c-green';st='BLOS OPERATIONS VIA RELAY';sd='Mission UAV in BLOS zone. Direct link blocked by terrain. Relay UAV is bridging C2 — GCS to Relay to Mission UAV. This is the force multiplier in action.';}
+  else if(uav.phase==='contingency'){sit='LINK LOSS';sc='c-red';st='FAILURE MODE: NO C2 IN BLOS';sd='Mission UAV entered BLOS with no relay on station. C2 lost. UAV executing pre-programmed contingency — loitering then returning home. This is exactly why relay architecture exists.';}
+  else if(uav.phase==='rtb'){sit='RECOVERY';sc='c-yellow';st='MISSION UAV RETURNING';sd=relay.phase==='orbiting'?'Mission UAV returning. Relay holds station until Mission UAV lands. Relay always recovers last.':'Mission UAV returning to GCS.';}
+  else if(relay.phase==='rtb'&&uav.phase==='landed'){sit='RECOVERY';sc='c-yellow';st='RELAY RECOVERS LAST';sd='Mission UAV has landed. Relay UAV now returning. Relay launched first. Relay recovers last. Full C2 coverage maintained throughout the mission.';}
+  else if(relay.phase==='landed_rtb'&&uav.phase==='landed'){sit='COMPLETE';sc='c-cyan';st='MISSION COMPLETE // PRESS RESET';sd='Both UAVs recovered. Relay launched first, recovered last. C2 maintained throughout all phases.';}
+  document.getElementById('sSit').textContent=sit;document.getElementById('sSit').className=`value ${sc}`;
+  document.getElementById('infoTitle').textContent=st;document.getElementById('infoDesc').textContent=sd;
+}
+
+function updateButtons(){
+  document.getElementById('btnLaunchRelay').disabled=relay.phase!=='ground';
+  document.getElementById('btnLaunchUAV').disabled=!(uav.phase==='ground'&&(relay.phase==='orbiting'||relay.phase==='ground'||relay.phase==='launching'));
+  document.getElementById('btnRelayRTB').disabled=relay.phase!=='orbiting';
+  document.getElementById('btnFail').disabled=!(relay.phase==='orbiting'||relay.phase==='launching');
+}
+
+function cmdLaunchRelay(){
+  if(relay.phase!=='ground')return;
+  relay.phase='launching';relay.x=GCS_X;relay.y=GCS_Y-0.04;updateButtons();
+}
+function cmdLaunchUAV(){
+  if(uav.phase!=='ground')return;
+  uav.phase='launching';uav.x=GCS_X;uav.y=GCS_Y-0.1;updateButtons();
+}
+function cmdRelayRTB(){
+  if(relay.phase!=='orbiting')return;
+  relay.phase='rtb';
+  if(uav.phase==='blos'){uav.phase='contingency';if(!contingencyTimer)contingencyTimer=setTimeout(()=>{uav.phase='rtb';contingencyTimer=null;updateButtons();},3000);}
+  updateButtons();
+}
+function cmdRelayFail(){
+  if(relay.phase!=='orbiting'&&relay.phase!=='launching')return;
+  relay.phase='failed';
+  if(uav.phase==='blos'){uav.phase='contingency';if(!contingencyTimer)contingencyTimer=setTimeout(()=>{uav.phase='rtb';contingencyTimer=null;updateButtons();},3000);}
+  updateButtons();
+}
+function cmdReset(){
+  relay={phase:'ground',x:GCS_X,y:GCS_Y-0.04,orbit:0};
+  uav={phase:'ground',x:GCS_X,y:0.32};
+  if(contingencyTimer){clearTimeout(contingencyTimer);contingencyTimer=null;}
+  frame=0;document.getElementById('sRange').textContent='0 KM';updateButtons();
+}
+
+function loop(){
+  ctx.clearRect(0,0,W,H);
+  drawScene();drawLinks();drawGCS();drawRelayUAV();drawMissionUAV();drawHUD();
+  updateLogic();updateStatus();
+  requestAnimationFrame(loop);
+}
+window.addEventListener('resize',resize);
+resize();updateButtons();loop();
+</script>
+</body>
+</html>
